@@ -160,7 +160,7 @@ class Config(object):
 
     @staticmethod
     def _check_string(key, value):
-        if not isinstance(value, (str, unicode)):
+        if not isinstance(value, str): # python3中没有unicode类型, python2中有
             raise ValueError('String type is required for key `{}`, found `{}`.'.format(key, value))
 
     @staticmethod
@@ -264,6 +264,11 @@ class Config(object):
         """
         feature_conf_dic = self.read_feature_conf()
         feature_list = self.read_schema().values()
+
+        # feature_list type look, 'dict_values' object has no attribute 'remove'
+        print(type(feature_list))
+
+        feature_list = list(feature_list)
         feature_list.remove('clk')
         if feature_type == 'all':
             return feature_list

@@ -22,11 +22,14 @@ from lib.build_estimator import build_estimator, build_custom_estimator
 from lib.utils.util import elapse_time, list_files
 
 CONFIG = Config().train
+
+# 初始化参数解析器
 parser = argparse.ArgumentParser(description='Train Wide and Deep Model.')
 
+# 参数解析器, 名称,类型,默认值,参数含义
 parser.add_argument(
     '--model_dir', type=str, default=CONFIG["model_dir"],
-    help='Base directory for the model.')
+    help='Base directory for the model.') # python3 exp.py -h 帮助信息通过-h来获得, 内部需要调用data = parser.parse_args()
 parser.add_argument(
     '--model_type', type=str, default=CONFIG["model_type"],
     help="Valid model types: {'wide', 'deep', 'wide_deep'}.")
@@ -173,7 +176,7 @@ def train_and_eval_api(model):
 def main(unused_argv):
     CONFIG = Config()
     print("Using TensorFlow Version %s" % tf.__version__)
-    assert "1.4" <= tf.__version__, "Need TensorFlow r1.4 or Later."
+    # assert "1.4" <= tf.__version__, "Need TensorFlow r1.4 or Later."
     print('\nModel Type: {}'.format(FLAGS.model_type))
     model_dir = os.path.join(FLAGS.model_dir, FLAGS.model_type)
     print('\nModel Directory: {}'.format(model_dir))
@@ -197,7 +200,8 @@ def main(unused_argv):
         train_fn = dynamic_train
         print("Using dynamic train mode.")
     else:
-        train_fn = train_and_eval
+        # train_fn = train_and_eval
+        pass # 这里为啥明明走了if了, 为啥又走else 迷 todo???
 
     if CONFIG.distribution["is_distribution"]:
         print("Using PID: {}".format(os.getpid()))
@@ -249,5 +253,8 @@ def main(unused_argv):
 if __name__ == '__main__':
     # Set to INFO for tracking training, default is WARN. ERROR for least messages
     tf.logging.set_verbosity(tf.logging.INFO)
+
+    # 开始得到解析的参数, argparse 框架解析到的参数整体送给tensorflow
+    # 需要tf.app.flag预先定义好参数, 见C:\Users\shoujunw\PycharmProjects\wide_deep\python\tensorflow_serving\export_savedmodel.py
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)

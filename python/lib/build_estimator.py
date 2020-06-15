@@ -100,11 +100,13 @@ def _build_model_columns():
 
             elif f_tran == 'vocab':
                 col = categorical_column_with_vocabulary_list(feature,
-                    vocabulary_list=map(str, f_param),
+
+                    # 对f_param中的每个元素都转化为str, Python2中直接返回的是list, python3中返回的是map对象
+                    vocabulary_list=list(map(str, f_param)),
                     dtype=None,
                     default_value=-1,
                     num_oov_buckets=0)  # len(vocab)+num_oov_buckets
-                wide_columns.append(col)
+                wide_columns.append(col) # 这里wide部分为啥套一个 indecator_column列 ?? todo
                 deep_columns.append(indicator_column(col))
                 wide_dim += len(f_param)
                 deep_dim += len(f_param)
@@ -136,7 +138,7 @@ def _build_model_columns():
             deep_dim += 1
 
     for cross_features, hash_bucket_size, is_deep in cross_feature_list:
-        cf_list = []
+        cf_list = [] # 每次cf_list都是一个新的
         for f in cross_features:
             f_type = feature_conf_dic[f]["type"]
             f_tran = feature_conf_dic[f]["transform"]
@@ -146,15 +148,18 @@ def _build_model_columns():
             else:
                 if f_tran == 'identity':
                     # If an input feature is of numeric type, you can use categorical_column_with_identity
+                    # 这里又重新构造了一遍, 可以使用之前已经构造好的吗??? 连续性特征做了分桶, identity特征做了分桶, 为啥类别特征直接加入名称?
                     cf_list.append(categorical_column_with_identity(f, num_buckets=f_param,
                     default_value=0))
                 else:
                     cf_list.append(f)  # category col put the name in crossed_column
-        col = crossed_column(cf_list, hash_bucket_size)
+
+        # col没一个交叉特征的特征列情况
+        col = crossed_column(cf_list, hash_bucket_size) # 交叉的方式和最终的交叉桶个数 crossed_column 的使用 todo
         wide_columns.append(col)
         wide_dim += hash_bucket_size
         if is_deep:
-            deep_columns.append(embedding_column(col, dimension=embedding_dim(hash_bucket_size)))
+            deep_columns.append(embedding_column(col, dimension=embedding_dim(hash_bucket_size))) # embedding_column的使用 todo
             deep_dim += embedding_dim(hash_bucket_size)
     # add columns logging info
     tf.logging.info('Build total {} wide columns'.format(len(wide_columns)))
@@ -269,6 +274,10 @@ def build_custom_estimator(model_dir, model_type):
     Returns:
         model instance of lib.joint.WideAndDeepClassifier class
     """
+
+    # 特征列是一个list, 里面存放的是没个特征的定义: 特征名称,多少个桶  特征组合的情况
+    # 存放类型 HashedCategoricalColumn, CrossColumn
+    # BucketizedColumn, VocabularyListCategoricalColumn, IdentiryCategoricalColumn
     wide_columns, deep_columns = _build_model_columns()
     _build_distribution()
     # Create a tf.estimator.RunConfig to ensure the model is run on CPU, which

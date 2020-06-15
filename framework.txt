@@ -1,0 +1,85 @@
+from __future__ import *: 将新版的特征引入到当前版本中
+# python 2.x
+from __future__ import print_function
+print("Hello World")
+
+特征列的区别:
+HashedCategoricalColumn: hash分桶,规定出桶的个数即可: 针对离散值太多的 # todo ? 如果一个表现优秀的id和一个表现差的id分到同一个桶中, 会有问题吗???
+CrossColumn
+
+# =========cross的两种方法
+1. 输入是原始的
+cross_column(["name", "age"], hash_bucket=4)
+2. 输入是经过特征工程了的
+cross_column([name_column, age_column], hash_bucket=4)
+# ========
+BucketizedColumn: 使用界限分桶
+VocabularyListCategoricalColumn: 输入是["a"] -> [1,0] : 字符离散
+IdentiryCategoricalColumn: 数据输入是2 -> [0,1] : 数值离散
+
+# 以上是wide部分的特征
+
+# 以下是deep部分的特征
+
+# 指标列 ( indicator column ) 是指取值仅一个为 1，其他都为 0 的向量
+IndicatorColumn: 输入是categorical 或者 crossedcolumn输出是one-hot
+NumericColumn
+EmbeddingColumn
+
+# 动态训练的意思是啥?? todo
+每次训练完整个数据之后对另一个数据做评估
+
+1. 训练之前的准备
+
+配置文件:
+基本配置:模型保存目录, 训练模型的类型, 数据(train,valid,test)位置
+参数配置:训练多少个epoch, 没多少个epoch评估一下,batch_size, 每多少步骤保存训练的模型
+
+数据输入的函数处理 lib.dataset input_fn
+
+tensorflow的版本是否在1.4之后
+
+Config类:
+定义配置
+训练参数: 位置, batch_size, epoch
+模型参数: 选择哪种优化器, 学习率, 隐藏层的节点数, 衰减率, 激活函数, 正则额系数
+
+
+构建estimator
+1. 构建模型的特征列
+    得到配置文件中对每个feature的描述: feature_conf_dic = CONF.read_feature_conf()
+
+    得到需要交叉的特征列: 信息包括: 谁和谁交叉(可以超过2个), 交叉之后的产生多少个桶, 是用于wide输入还是用于deep输入,1为deep输入
+
+    每个feature(所有的feature和index在schema.yml)的注释: feature的类型, feature是否需要transform(做特征工程)
+        特征工程:
+            针对类别性变量 1. 分桶(hash分桶, 一般用于id类型的特征) 以及分桶个数 `hash_bucket` or `vocab()这种分桶方式就是one-hot的方式了,适用于分类少的` or `identity(做embedding)`.
+                类别性特征如何hash分桶, 使用hash函数计算当前对象的hash数字, 然后分到指定的n个桶中
+                identity的含义是: 喂的数据是一个数字, 但是你不能当做数字来处理,而是应该当做分类变量来处理成one-hot
+                所以所有的分类变量只是先通过参数得到分到那个hashbucket, 最后还是需要将其变成分类指标类才可以 indicator_column ?? todo
+
+                hash分桶的embedding维度: 分桶个数开4此房根号取对数 再给2做指数: int(np.power(2, np.ceil(np.log(dim**0.25)))), 100 -> 4
+            针对连续性变量: 最大化, 最小化, 取对数, 标准化, 使用边界值对连续性特征分桶 其参数分别为: [min, max] or [mean, std],boundaries
+
+            交叉的特征: 默认都翻入wide部分, 如果需要放入深度部分is_deep=1, 则固定的维度为上面的计算方式
+
+    模型训练代码:
+        大批量判断模型的类型,参数,等是否给到位
+        开始写代码: _wide_deep_combined_model_fn
+
+        # =============
+        estimator: 继承
+        class SelfEstimator(tf.estimator.Estimator):
+            def __init__(self): # 还是给模型函数
+                super(WideAndDeepClassifier, self).__init__(model_fn=_model_fn, model_dir=model_dir, config=config)
+
+        将已经构造好的特征列作为初始化参数 **
+        RunConfig: 分布式训练相关的属性
+        输入在model.train的时候给
+
+        # model_fn: 参数:
+            param: 传递给构造函数的所有 params 转而又传递给 model_fn
+
+        net = tf.feature_column.input_layer(features, params['feature_columns'])
+
+        # =============
